@@ -1,7 +1,7 @@
 package bgu.spl171.net.api;
 
 public interface MessageEncoderDecoder<T> {
-//////
+
     /**
      * add the next byte to the decoding process
      *
