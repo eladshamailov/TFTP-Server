@@ -3,13 +3,17 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package bgu.spl171.net.srv;
+package bgu.spl171.net.srv.bidi;
 
 import java.io.Closeable;
+import java.io.IOException;
 
 /**
- * The ConnectionHandler interface for Message of type T
+ *
+ * @author bennyl
  */
-public interface ConnectionHandler<T> extends Closeable {
-    
+public interface ConnectionHandler<T> extends Closeable{
+
+    void send(T msg) ;
+
 }
