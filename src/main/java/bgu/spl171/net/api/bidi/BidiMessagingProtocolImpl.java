@@ -6,7 +6,7 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Created by elad on 1/12/17.
  */
-public class BidiMessagingProtocolImpl<Packet> implements BidiMessagingProtocol<Packet> {
+public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> {
     private Connections<Packet> connections;
     private int connectionId;
     private static ConcurrentHashMap<Integer, String> activeClients=new ConcurrentHashMap<>();
@@ -19,7 +19,7 @@ public class BidiMessagingProtocolImpl<Packet> implements BidiMessagingProtocol<
     @Override
     public void process(Packet message) {
         if (message==null){
-            connections.send(connectionId,new ERROR((short)4,(bgu.spl171.net.packets.Packet)"Illegal TFTP operation–Unknown Opcode"));
+            connections.send(connectionId, new ERROR((short) 4, "Illegal TFTP operation–Unknown Opcode"));
         }
     }
 
