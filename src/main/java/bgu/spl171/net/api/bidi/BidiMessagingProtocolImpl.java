@@ -5,6 +5,8 @@ package bgu.spl171.net.api.bidi;
  */
 public class BidiMessagingProtocolImpl<T> implements BidiMessagingProtocol<T> {
     @Override
+
+
     public void start(int connectionId, Connections<T> connections) {
 
     }
