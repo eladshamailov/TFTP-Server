@@ -21,6 +21,27 @@ public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> 
         if (message==null){
             connections.send(connectionId, new ERROR((short) 4, "Illegal TFTP operation–Unknown Opcode"));
         }
+        else{
+            if(message.getOpCode()==7){//if the user chose to connect LOGCQ
+                if(activeClients.containsValue((((LOGRQ)message).getuserName()))) {
+                    connections.send(connectionId, new ERROR((short) 7, "User already logged in–Login username already connected"));
+                }
+                else{
+                    activeClients.put(connectionId,((LOGRQ)message).getuserName());
+                    connections.send(connectionId,new ACK((short)0);
+                }
+            }
+            else{
+                if(activeClients.containsKey(connectionId)){
+                    //TODO:add the cases
+                    switch (message.getOpCode()){
+                    }
+                }
+                else{
+                    connections.send(connectionId, new ERROR((short) 6, "User not logged in–Any opcode received before Login completes"));
+                }
+            }
+        }
     }
 
     @Override
