@@ -20,6 +20,7 @@ public class BidiMessagingProtocolImpl<T> implements BidiMessagingProtocol<T> {
 
     @Override
     public void process(T message) {
+
     }
 
     @Override

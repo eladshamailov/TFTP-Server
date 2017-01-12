@@ -6,7 +6,7 @@ package bgu.spl171.net.packets;
 public class ERROR extends Packet {
     private short errorCode;
     private String errorMassage;
-    public ERROR(short errorCode,String errorMassage) {
+    public ERROR(short errorCode, String errorMassage) {
         super((short)5);
         this.errorCode=errorCode;
         this.errorMassage=errorMassage;
