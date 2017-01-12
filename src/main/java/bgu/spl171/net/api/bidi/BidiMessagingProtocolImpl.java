@@ -7,10 +7,10 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class BidiMessagingProtocolImpl<T> implements BidiMessagingProtocol<T> {
     private Connections<T> connections;
-    private AtomicInteger connectionId;
+    private int connectionId;
     @Override
     public void start(int connectionId, Connections<T> connections) {
-        this.connectionId.set(connectionId);
+        this.connectionId=connectionId;
         this.connections=connections;
     }
 
