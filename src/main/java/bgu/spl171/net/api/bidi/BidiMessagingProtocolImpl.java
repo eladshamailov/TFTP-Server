@@ -12,7 +12,7 @@ public class BidiMessagingProtocolImpl<T> implements BidiMessagingProtocol<T> {
 
 
     public void start(int connectionId, Connections<T> connections) {
-        this.connectionId.set(connectionId);
+        this.connectionId=connectionId;
         this.connections=connections;
     }
 
