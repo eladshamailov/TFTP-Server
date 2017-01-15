@@ -87,8 +87,7 @@ public class MessageEncoderDecoderImpl implements MessageEncoderDecoder<Packet> 
                 return new ACK(fromBytesToShort(Arrays.copyOfRange(bytesArray,2,4)));
             case 5:
                 short error = fromBytesToShort(Arrays.copyOfRange(bytesArray,2,4));
-                String Message = new String(bytesArray, 4, tempLength - 5, StandardCharsets.UTF_8);
-                return new ERROR(error,Message);
+                return new ERROR(error);
             case 6:
                 return new DIRQ();
             case 7:
@@ -125,8 +124,68 @@ public class MessageEncoderDecoderImpl implements MessageEncoderDecoder<Packet> 
      */
     @Override
     public byte[] encode(Packet message) {
-        return new byte[0];
+        byte[] result = fromShortToBytes(message.getOpCode());
+        byte[] answer=null;
+        switch (message.getOpCode()){
+            case 1:
+                RRQ RRQPacket = (RRQ)message;
+                answer = mergeArrays(result,RRQPacket.getName().getBytes());
+                break;
+            case 2:
+                WRQ WRQPacket = (WRQ)message;
+                answer = mergeArrays(result,WRQPacket.getFileName().getBytes());
+                break;
+            case 3:
+                DATA DATAPacket = (DATA)message;
+                byte[] tempDataArr = mergeArrays(result,fromShortToBytes(DATAPacket.getBlock()));
+                answer = mergeArrays(tempDataArr,DATAPacket.getData());
+                break;
+            case 4:
+                ACK ACKPacket = (ACK)message;
+                answer = mergeArrays(result,fromShortToBytes(ACKPacket.getBlock()));
+                break;
+            case 5:
+                ERROR ErrorPacket = (ERROR)message;
+                byte[] tempErrorArr = mergeArrays(result,fromShortToBytes(ErrorPacket.getErrorCode()));
+                answer = mergeArrays(tempErrorArr,ErrorPacket.getErrorMessage().getBytes());
+                break;
+            case 6:
+                answer = result;
+                break;
+            case 7:
+                LOGRQ LOGRQPacket= (LOGRQ)message;
+                answer = mergeArrays(result,LOGRQPacket.getUserName().getBytes());
+                break;
+            case 8:
+                DELRQ DELRQPacket = (DELRQ)message;
+                answer = mergeArrays(result,DELRQPacket.getFileName().getBytes());
+                break;
+            case 9:
+                BCAST BCASTPacket = (BCAST)message;
+                byte[] tempBCASTArr;
+                if(BCASTPacket.isDeletedOrAdded())
+                    tempBCASTArr = mergeArrays(result,"1".getBytes());
+                else
+                    tempBCASTArr = mergeArrays(result,"0".getBytes());
+                answer = mergeArrays(tempBCASTArr,BCASTPacket.getFileName().getBytes());
+                break;
+            case 10:
+                answer = result;
+                break;
+            default:
+                answer = null;
+                break;
+        }
+
+        if(answer != null){
+            answer = mergeArrays(answer,"0".getBytes());
+        }
+
+        return answer;
     }
+
+
+
 
     private short fromBytesToShort(byte[] byteArr) {
         short finish = (short) ((byteArr[0] & 0xff) << 8);

@@ -53,7 +53,7 @@ public class ERROR extends Packet {
         return errorCode;
     }
 
-    public String getErrorMassage() {
+    public String getErrorMessage() {
         return errorMassage;
     }
 }

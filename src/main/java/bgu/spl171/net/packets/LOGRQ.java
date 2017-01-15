@@ -9,7 +9,7 @@ public class LOGRQ extends Packet {
         super((short)7);
         this.userName=userName;
     }
-    public String getuserName() {
+    public String getUserName() {
         return userName;
     }
 }
