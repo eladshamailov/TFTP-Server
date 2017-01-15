@@ -2,12 +2,11 @@ package bgu.spl171.net.api.bidi;
 
 import bgu.spl171.net.packets.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Created by elad on 1/12/17.
  */
-public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> {
+public class BidiMessagingProtocolImpl<Packet> implements BidiMessagingProtocol<Packet> {
     private Connections<Packet> connections;
     private int connectionId;
     private static ConcurrentHashMap<Integer, String> activeClients=new ConcurrentHashMap<>();
@@ -20,7 +19,7 @@ public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> 
     @Override
     public void process(Packet message) {
         if (message==null){
-            connections.send(connectionId,new ERROR((short)4,"Illegal TFTP operation–Unknown Opcode"));
+            connections.send(connectionId, new ERROR((short) 4, "Illegal TFTP operation–Unknown Opcode"));
         }
     }
 
