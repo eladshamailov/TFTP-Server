@@ -96,7 +96,7 @@ public class MessageEncoderDecoderImpl implements MessageEncoderDecoder<Packet> 
                 return new DELRQ(new String(bytesArray, 2, tempLength - 3, StandardCharsets.UTF_8));
             case 9:
                 String answer = new String(bytesArray, 2, 1, StandardCharsets.UTF_8);
-                byte deletedOrAdded = '1';
+                byte deletedOrAdded;
                 if(answer == "0"){
                     deletedOrAdded = '0';
                 }
