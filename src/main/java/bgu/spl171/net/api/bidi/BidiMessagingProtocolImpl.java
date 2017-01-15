@@ -75,6 +75,8 @@ public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> 
                 }
                 case 3:{
                     DATA dataPack=(DATA)message;
+                    writeData.addLast(dataPack.getData());
+                    connections.send(connId, new ACK(dataPack.getBlock()));
                 }
             }
         }
