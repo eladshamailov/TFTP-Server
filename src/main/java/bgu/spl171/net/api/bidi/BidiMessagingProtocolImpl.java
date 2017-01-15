@@ -4,6 +4,7 @@ import bgu.spl171.net.packets.*;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.Arrays;
@@ -48,68 +49,24 @@ public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> 
         if (loggedSuccessfully) {
             switch (message.getOpCode()) {
                 case 1: {
-                    RRQ rrqPack=(RRQ)message;
-                    try {
-                        Path path=Paths.get("/Files", rrqPack.getName());
-                        if (!isWriting(rrqPack.getName())) {
-                            byte[] data=Files.readAllBytes(path);
-                            sendData(data);
-                        }
-                    }
-                    catch (FileNotFoundException exp) {
-                        connections.send(connId, new ERROR((short) 1));
-                    }
-                    catch (IOException exp) {
-                        connections.send(connId, new ERROR((short) 2));
-                    }
+                    handlesRRQ(message);
                     break;
                 }
                 case 2:{
-                    WRQ wrqPack=(WRQ)message;
-                    String path="/Files/"+wrqPack.getFileName();
-                    File file = new File(path);
-                    try {
-                        if (file.createNewFile() && !isWriting(wrqPack.getFileName())) {
-                            fName = wrqPack.getFileName();
-                            writing.add(fName);
-                            connections.send(connId, new ACK((short) 0));
-                        } else
-                            connections.send(connId, new ERROR((short) 5));
-                }
-                catch (IOException exp) {
-                    connections.send(connId, new ERROR((short) 2));
-                }
+                    handlesWRQ(message);
                 break;
                 }
                 case 3:{
-                    //TODO:case 3
-                    DATA dataPack=(DATA)message;
-                    writeData.addLast(dataPack.getData());
-                    connections.send(connId, new ACK(dataPack.getBlock()));
-                    if((dataPack).getPacketSize()<(1<<9)){
-
+                    handlesDATA(message);
+                        break;
                     }
-                }
                 case 4:{
                     if(!readData.isEmpty())
                         connections.send(connId,readData.poll());
                     break;
                 }
                 case 6:{
-                    String str="";
-                    File[] tmp=(new File("/Files")).listFiles();
-                    ArrayList<File> filesList=new ArrayList<>();
-                    for(int i=0;i<tmp.length;i++){
-                        filesList.add(tmp[i]);
-                    }
-                    if(!filesList.isEmpty()){
-                        char divByZero='\0';
-                        for (int i=0;i<filesList.size();i++){
-                            if (filesList.get(i).isFile())
-                                str=str+filesList.get(i).getName()+divByZero;
-                        }
-                        sendData(str.getBytes());
-                    }
+                    handlesDIRQ();
                     break;
                 }
                 case 7:{
@@ -117,30 +74,11 @@ public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> 
                     break;
                 }
                 case 8:{
-                    DELRQ delrqPack=(DELRQ)message;
-                    String path = "/Files/"+delrqPack.getFileName();
-                    //TODO:check if broadcast or send
-                    try {
-                        Files.delete(Paths.get(path));
-                        connections.send(connId,new ACK((short)0));
-                        connections.broadcast(new BCAST(delrqPack.getFileName(),(byte)0));
-                    }
-                    catch (DirectoryNotEmptyException e){
-                        connections.send(connId,new ERROR((short)0));
-                    }
-                    catch (NoSuchFileException e){
-                        connections.send(connId,new ERROR((short)1));
-                    }
-                    catch (IOException x) {
-                        connections.send(connId,new ERROR((short)2));
-                    }
+                    handlesDELRQ(message);
                     break;
                 }
                 case 10:{
-                    activeClients.remove(connId);
-                    shouldTerminate=true;
-                    connections.send(connId,new ACK((short)0));
-                    connections.disconnect(connId);
+                    handlesDISC();
                     break;
                 }
             }
@@ -178,7 +116,96 @@ public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> 
         }
         return ans;
     }
-    @Override
+    private void handlesRRQ(Packet message){
+        RRQ rrqPack=(RRQ)message;
+        try {
+            Path path=Paths.get("/Files", rrqPack.getName());
+            if (!isWriting(rrqPack.getName())) {
+                byte[] data=Files.readAllBytes(path);
+                sendData(data);
+            }
+        }
+        catch (FileNotFoundException exp) {
+            connections.send(connId, new ERROR((short) 1));
+        }
+        catch (IOException exp) {
+            connections.send(connId, new ERROR((short) 2));
+        }
+    }
+    private void handlesWRQ(Packet message){
+        WRQ wrqPack=(WRQ)message;
+        String path="/Files/"+wrqPack.getFileName();
+        File file = new File(path);
+        try {
+            if (file.createNewFile() && !isWriting(wrqPack.getFileName())) {
+                fName = wrqPack.getFileName();
+                writing.add(fName);
+                connections.send(connId, new ACK((short) 0));
+            } else
+                connections.send(connId, new ERROR((short) 5));
+        }
+        catch (IOException exp) {
+            connections.send(connId, new ERROR((short) 2));
+        }
+    }
+    private void handlesDATA(Packet message) {
+        DATA dataPack = (DATA) message;
+        writeData.addLast(dataPack.getData());
+        connections.send(connId, new ACK(dataPack.getBlock()));
+        if ((dataPack).getPacketSize() < (1 << 9)) {
+            try (FileOutputStream fileOutputStream = new FileOutputStream("/Files/" + fName)) {
+                fileOutputStream.write(concateBytesArray(writeData));
+                connections.send(connId, new BCAST(fName, (byte) 1));
+            } catch (NoSuchFileException e) {
+                connections.send(connId, new ERROR((short) 1));
+            } catch (IOException exp) {
+                connections.send(connId, new ERROR((short) 2));
+            }
+        }
+    }
+    private void handlesDIRQ() {
+        String str = "";
+        File[] tmp = (new File("/Files")).listFiles();
+        ArrayList<File> filesList = new ArrayList<>();
+        for (int i = 0; i < tmp.length; i++) {
+            filesList.add(tmp[i]);
+        }
+        if (!filesList.isEmpty()) {
+            char divByZero = '\0';
+            for (int i = 0; i < filesList.size(); i++) {
+                if (filesList.get(i).isFile())
+                    str = str + filesList.get(i).getName() + divByZero;
+            }
+            sendData(str.getBytes());
+        }
+    }
+    private void handlesDELRQ(Packet message){
+        DELRQ delrqPack=(DELRQ)message;
+        String path = "/Files/"+delrqPack.getFileName();
+        //TODO:check if broadcast or send
+        try {
+            Files.delete(Paths.get(path));
+            connections.send(connId,new ACK((short)0));
+            connections.broadcast(new BCAST(delrqPack.getFileName(),(byte)0));
+        }
+        catch (DirectoryNotEmptyException e){
+            connections.send(connId,new ERROR((short)0));
+        }
+        catch (NoSuchFileException e){
+            connections.send(connId,new ERROR((short)1));
+        }
+        catch (IOException x) {
+            connections.send(connId,new ERROR((short)2));
+        }
+    }
+    private void handlesDISC(){
+        activeClients.remove(connId);
+        shouldTerminate=true;
+        connections.send(connId,new ACK((short)0));
+        connections.disconnect(connId);
+    }
+
+        @Override
     public boolean shouldTerminate() {
         return shouldTerminate;
     }
