@@ -21,6 +21,7 @@ public class MessageEncoderDecoderImpl implements MessageEncoderDecoder<Packet> 
     /**
      * not possible to return packets: 1,2,5,6,7
      *
+     *
      */
     public Packet decodeNextByte(byte nextByte) {
         switch (packetNumber) {
