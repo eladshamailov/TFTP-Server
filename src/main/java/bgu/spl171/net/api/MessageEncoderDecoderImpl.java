@@ -22,8 +22,6 @@ public class MessageEncoderDecoderImpl implements MessageEncoderDecoder<Packet> 
      * not possible to return packets: 1,2,5,6,7
      *
      */
-
-
     public Packet decodeNextByte(byte nextByte) {
         switch (packetNumber) {
             case 0:
@@ -99,14 +97,14 @@ public class MessageEncoderDecoderImpl implements MessageEncoderDecoder<Packet> 
             case 9:
                 String answer = new String(bytesArray, 2, 1, StandardCharsets.UTF_8);
                 boolean deletedOrAdded = true;
-                if(answer == "1"){
-                    deletedOrAdded = true;
-                }
-                else if(answer == "0"){
+                if(answer == "0"){
                     deletedOrAdded = false;
                 }
+                else if(answer == "1"){
+                    deletedOrAdded = true;
+                }
                 else{
-                    throw new IllegalArgumentException("BCAST deleted Or added not boolean");
+                    throw new IllegalArgumentException("BCAST deleted Or added is not boolean");
                 }
                 String fileName = new String(bytesArray, 3, tempLength - 4, StandardCharsets.UTF_8);
                 return new BCAST(fileName,deletedOrAdded);
