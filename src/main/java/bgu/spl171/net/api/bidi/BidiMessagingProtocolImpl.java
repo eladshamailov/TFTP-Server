@@ -209,4 +209,24 @@ public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> 
             connections.send(connId, readData.poll());
 
     }
+
+    private byte[] NirBytesArray(LinkedBlockingDeque <byte[]> byteArr) {
+        int bLength=0;
+        Iterator<byte[]> it = byteArr.iterator();
+        while (it.hasNext()){
+            bLength=bLength+it.next().length;
+        }
+        byte[] temp = new byte[bLength];
+        Iterator<byte[]> it1 = byteArr.iterator();
+        int counter=0;
+        while (it1.hasNext()){
+            byte[] tempArr=it.next();
+            for (int i = 0; i < tempArr.length; i++) {
+                temp[counter] = tempArr[i];
+                counter++;
+            }
+        }
+        return temp;
+    }
 }
+
