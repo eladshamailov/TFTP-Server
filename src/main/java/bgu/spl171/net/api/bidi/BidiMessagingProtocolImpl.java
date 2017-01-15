@@ -92,11 +92,11 @@ public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> 
         }
         else {
             if(message.getOpCode()==7){//if the user chose to connect LOGCQ
-                if(activeClients.containsValue((((LOGRQ)message).getuserName()))) {
+                if(activeClients.containsValue((((LOGRQ)message).getUserName()))) {
                     connections.send(connId, new ERROR((short) 7));
                 }
                 else{
-                    activeClients.put(connId,((LOGRQ)message).getuserName());
+                    activeClients.put(connId,((LOGRQ)message).getUserName());
                     connections.send(connId,new ACK((short)0));
                 }
             }
