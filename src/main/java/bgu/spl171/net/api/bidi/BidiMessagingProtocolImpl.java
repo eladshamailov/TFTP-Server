@@ -28,12 +28,11 @@ public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> 
                 }
                 else{
                     activeClients.put(connectionId,((LOGRQ)message).getuserName());
-                    connections.send(connectionId,new ACK((short)0);
+                    connections.send(connectionId,new ACK((short)0));
                 }
             }
             else{
                 if(activeClients.containsKey(connectionId)){
-                    //TODO:add the cases
                     switch (message.getOpCode()){
                     }
                 }
@@ -43,7 +42,6 @@ public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> 
             }
         }
     }
-
     @Override
     public boolean shouldTerminate() {
         return false;
