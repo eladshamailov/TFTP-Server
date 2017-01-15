@@ -96,15 +96,15 @@ public class MessageEncoderDecoderImpl implements MessageEncoderDecoder<Packet> 
                 return new DELRQ(new String(bytesArray, 2, tempLength - 3, StandardCharsets.UTF_8));
             case 9:
                 String answer = new String(bytesArray, 2, 1, StandardCharsets.UTF_8);
-                boolean deletedOrAdded = true;
+                byte deletedOrAdded;
                 if(answer == "0"){
-                    deletedOrAdded = false;
+                    deletedOrAdded = '0';
                 }
                 else if(answer == "1"){
-                    deletedOrAdded = true;
+                    deletedOrAdded = '1';
                 }
                 else{
-                    throw new IllegalArgumentException("BCAST deleted Or added is not boolean");
+                    throw new IllegalArgumentException("BCAST deleted Or added is not ok");
                 }
                 String fileName = new String(bytesArray, 3, tempLength - 4, StandardCharsets.UTF_8);
                 return new BCAST(fileName,deletedOrAdded);
@@ -163,10 +163,12 @@ public class MessageEncoderDecoderImpl implements MessageEncoderDecoder<Packet> 
             case 9:
                 BCAST BCASTPacket = (BCAST)message;
                 byte[] tempBCASTArr;
-                if(BCASTPacket.isDeletedOrAdded())
+                if(BCASTPacket.isDeletedOrAdded()=='1')
                     tempBCASTArr = mergeArrays(result,"1".getBytes());
-                else
+                else if(BCASTPacket.isDeletedOrAdded()=='0')
                     tempBCASTArr = mergeArrays(result,"0".getBytes());
+                else
+                    throw new IllegalArgumentException("BCAST deleted Or added is not ok");
                 answer = mergeArrays(tempBCASTArr,BCASTPacket.getFileName().getBytes());
                 break;
             case 10:

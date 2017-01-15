@@ -7,6 +7,10 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.*;
 import java.util.ArrayList;
+import java.nio.file.Files;
+import java.util.Arrays;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Iterator;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
@@ -185,6 +189,20 @@ public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> 
         return found;
     }
     private void sendData(byte[] data){
+        int Len = data.length;
+        short numOfPackets = 0;
+        readData.clear();
+        if (Len>(1<<9)) {
+            while (Len > (1 << 9)) {
+                byte[] ArrayToSend = Arrays.copyOfRange(data, 512 * numOfPackets, 512 * (numOfPackets + 1));
+                readData.add(new DATA((short) 512, numOfPackets, ArrayToSend));
+                numOfPackets++;
+                Len -= 512;
+            }
+        }
+            byte[] newArray = Arrays.copyOfRange(data, data.length - Len, Len);
+            readData.add(new DATA((short) Len, numOfPackets, newArray));
+            connections.send(connId, readData.poll());
 
     }
 }
