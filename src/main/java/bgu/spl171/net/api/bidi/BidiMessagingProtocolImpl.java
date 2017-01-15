@@ -33,7 +33,6 @@ public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> 
             }
             else{
                 if(activeClients.containsKey(connectionId)){
-                    //TODO:add the cases
                     switch (message.getOpCode()){
                     }
                 }
@@ -43,7 +42,6 @@ public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> 
             }
         }
     }
-
     @Override
     public boolean shouldTerminate() {
         return false;
