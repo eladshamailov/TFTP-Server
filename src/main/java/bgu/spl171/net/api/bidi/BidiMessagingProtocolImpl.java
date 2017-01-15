@@ -5,9 +5,8 @@ import bgu.spl171.net.packets.*;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.nio.file.*;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
@@ -23,6 +22,7 @@ public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> 
     private ConcurrentLinkedDeque<String> writing;
     private LinkedBlockingDeque<DATA> readData;
     private LinkedBlockingDeque<byte[]> writeData;
+    private boolean shouldTerminate = false;
     private String fName;
 
     @Override
@@ -74,9 +74,66 @@ public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> 
                 break;
                 }
                 case 3:{
+                    //TODO:case 3
                     DATA dataPack=(DATA)message;
                     writeData.addLast(dataPack.getData());
                     connections.send(connId, new ACK(dataPack.getBlock()));
+                    if((dataPack).getPacketSize()<(1<<9)){
+
+                    }
+                }
+                case 4:{
+                    if(!readData.isEmpty())
+                        connections.send(connId,readData.poll());
+                    break;
+                }
+                case 6:{
+                    String str="";
+                    File[] tmp=(new File("/Files")).listFiles();
+                    ArrayList<File> filesList=new ArrayList<>();
+                    for(int i=0;i<tmp.length;i++){
+                        filesList.add(tmp[i]);
+                    }
+                    if(!filesList.isEmpty()){
+                        char divByZero='\0';
+                        for (int i=0;i<filesList.size();i++){
+                            if (filesList.get(i).isFile())
+                                str=str+filesList.get(i).getName()+divByZero;
+                        }
+                        sendData(str.getBytes());
+                    }
+                    break;
+                }
+                case 7:{
+                    connections.send(connId,new ERROR((short)7));
+                    break;
+                }
+                case 8:{
+                    DELRQ delrqPack=(DELRQ)message;
+                    String path = "/Files/"+delrqPack.getFileName();
+                    //TODO:check if broadcast or send
+                    try {
+                        Files.delete(Paths.get(path));
+                        connections.send(connId,new ACK((short)0));
+                        connections.broadcast(new BCAST(delrqPack.getFileName(),(byte)0));
+                    }
+                    catch (DirectoryNotEmptyException e){
+                        connections.send(connId,new ERROR((short)0));
+                    }
+                    catch (NoSuchFileException e){
+                        connections.send(connId,new ERROR((short)1));
+                    }
+                    catch (IOException x) {
+                        connections.send(connId,new ERROR((short)2));
+                    }
+                    break;
+                }
+                case 10:{
+                    activeClients.remove(connId);
+                    shouldTerminate=true;
+                    connections.send(connId,new ACK((short)0));
+                    connections.disconnect(connId);
+                    break;
                 }
             }
         }
@@ -115,7 +172,7 @@ public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> 
     }
     @Override
     public boolean shouldTerminate() {
-        return false;
+        return shouldTerminate;
     }
 
     private boolean isWriting(String str){
