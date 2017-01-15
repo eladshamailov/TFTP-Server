@@ -2,6 +2,7 @@ package bgu.spl171.net.api.bidi;
 
 import bgu.spl171.net.packets.*;
 
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -22,6 +23,7 @@ public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> 
     private ConcurrentLinkedDeque<String> writing;
     private LinkedBlockingDeque<DATA> readData;
     private LinkedBlockingDeque<byte[]> writeData;
+    private String fName;
 
     @Override
     public void start(int connectionId, Connections<Packet> connections) {
@@ -38,11 +40,11 @@ public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> 
         if (loggedSuccessfully) {
             switch (message.getOpCode()) {
                 case 1: {
-                    RRQ rrqPack = (RRQ) message;
+                    RRQ rrqPack=(RRQ)message;
                     try {
-                        Path path = Paths.get("/Files", rrqPack.getName());
+                        Path path=Paths.get("/Files", rrqPack.getName());
                         if (!isWriting(rrqPack.getName())) {
-                            byte[] data = Files.readAllBytes(path);
+                            byte[] data=Files.readAllBytes(path);
                             sendData(data);
                         }
                     }
@@ -55,7 +57,24 @@ public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> 
                     break;
                 }
                 case 2:{
-
+                    WRQ wrqPack=(WRQ)message;
+                    String path="/Files/"+wrqPack.getFileName();
+                    File file = new File(path);
+                    try {
+                        if (file.createNewFile() && !isWriting(wrqPack.getFileName())) {
+                            fName = wrqPack.getFileName();
+                            writing.add(fName);
+                            connections.send(connId, new ACK((short) 0));
+                        } else
+                            connections.send(connId, new ERROR((short) 5));
+                }
+                catch (IOException exp) {
+                    connections.send(connId, new ERROR((short) 2));
+                }
+                break;
+                }
+                case 3:{
+                    DATA dataPack=(DATA)message;
                 }
             }
         }
