@@ -154,7 +154,22 @@ public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> 
         connections.send(connId, new ACK(dataPack.getBlock()));
         if ((dataPack).getPacketSize() < (1 << 9)) {
             try (FileOutputStream fileOutputStream = new FileOutputStream("/Files/" + fName)) {
-                fileOutputStream.write(concateBytesArray(writeData));
+                int bLength=0;
+                Iterator<byte[]> it = writeData.iterator();
+                while (it.hasNext()){
+                    bLength=bLength+it.next().length;
+                }
+                byte[] temp = new byte[bLength];
+                Iterator<byte[]> it1 = writeData.iterator();
+                int counter=0;
+                while (it1.hasNext()){
+                    byte[] tempArr=it.next();
+                    for (int i = 0; i < tempArr.length; i++) {
+                        temp[counter] = tempArr[i];
+                        counter++;
+                    }
+                }
+                fileOutputStream.write(temp);
                 connections.send(connId, new BCAST(fName, (byte) 1));
             } catch (NoSuchFileException e) {
                 connections.send(connId, new ERROR((short) 1));
@@ -235,25 +250,6 @@ public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> 
             readData.add(new DATA((short) Len, numOfPackets, newArray));
             connections.send(connId, readData.poll());
 
-    }
-
-    private byte[] NirBytesArray(LinkedBlockingDeque <byte[]> byteArr) {
-        int bLength=0;
-        Iterator<byte[]> it = byteArr.iterator();
-        while (it.hasNext()){
-            bLength=bLength+it.next().length;
-        }
-        byte[] temp = new byte[bLength];
-        Iterator<byte[]> it1 = byteArr.iterator();
-        int counter=0;
-        while (it1.hasNext()){
-            byte[] tempArr=it.next();
-            for (int i = 0; i < tempArr.length; i++) {
-                temp[counter] = tempArr[i];
-                counter++;
-            }
-        }
-        return temp;
     }
 }
 
