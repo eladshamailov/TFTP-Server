@@ -5,8 +5,8 @@ package bgu.spl171.net.packets;
  */
 public class BCAST extends Packet {
     private String fileName;
-    private boolean deletedOrAdded;
-    public BCAST(String name,boolean deletedOrAdded) {
+    private byte deletedOrAdded;
+    public BCAST(String name,byte deletedOrAdded) {
         super((short)9);
         this.fileName =name;
         this.deletedOrAdded=deletedOrAdded;
@@ -15,7 +15,7 @@ public class BCAST extends Packet {
         return fileName;
     }
 
-    public boolean isDeletedOrAdded() {
+    public byte isDeletedOrAdded() {
         return deletedOrAdded;
     }
 }
