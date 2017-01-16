@@ -49,15 +49,18 @@ public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> 
         if (loggedSuccessfully) {
             switch (message.getOpCode()) {
                 case 1: {
-                    handlesRRQ(message);
+                    RRQ rrqPack=(RRQ)message;
+                    handlesRRQ(rrqPack);
                     break;
                 }
                 case 2:{
-                    handlesWRQ(message);
+                    WRQ wrqPack=(WRQ)message;
+                    handlesWRQ(wrqPack);
                 break;
                 }
                 case 3:{
-                    handlesDATA(message);
+                    DATA dataPack = (DATA) message;
+                    handlesDATA(dataPack);
                         break;
                     }
                 case 4:{
@@ -74,7 +77,8 @@ public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> 
                     break;
                 }
                 case 8:{
-                    handlesDELRQ(message);
+                    DELRQ delrqPack=(DELRQ)message;
+                    handlesDELRQ(delrqPack);
                     break;
                 }
                 case 10:{
@@ -116,8 +120,7 @@ public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> 
         }
         return ans;
     }
-    private void handlesRRQ(Packet message){
-        RRQ rrqPack=(RRQ)message;
+    private void handlesRRQ(RRQ rrqPack){
         try {
             Path path=Paths.get("/Files", rrqPack.getName());
             if (!isWriting(rrqPack.getName())) {
@@ -132,9 +135,9 @@ public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> 
             connections.send(connId, new ERROR((short) 2));
         }
     }
-    private void handlesWRQ(Packet message){
-        WRQ wrqPack=(WRQ)message;
-        String path="/Files/"+wrqPack.getFileName();
+    private void handlesWRQ(WRQ wrqPack){
+        String filesName=wrqPack.getFileName();
+        String path="/Files/"+filesName;
         File file = new File(path);
         try {
             if (file.createNewFile() && !isWriting(wrqPack.getFileName())) {
@@ -148,8 +151,7 @@ public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> 
             connections.send(connId, new ERROR((short) 2));
         }
     }
-    private void handlesDATA(Packet message) {
-        DATA dataPack = (DATA) message;
+    private void handlesDATA(DATA dataPack) {
         writeData.addLast(dataPack.getData());
         connections.send(connId, new ACK(dataPack.getBlock()));
         if ((dataPack).getPacketSize() < (1 << 9)) {
@@ -194,9 +196,9 @@ public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> 
             sendData(str.getBytes());
         }
     }
-    private void handlesDELRQ(Packet message){
-        DELRQ delrqPack=(DELRQ)message;
-        String path = "/Files/"+delrqPack.getFileName();
+    private void handlesDELRQ(DELRQ delrqPack){
+        String filesName=delrqPack.getFileName();
+        String path = "/Files/"+filesName;
         //TODO:check if broadcast or send
         try {
             Files.delete(Paths.get(path));
@@ -219,7 +221,6 @@ public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> 
         connections.send(connId,new ACK((short)0));
         connections.disconnect(connId);
     }
-
         @Override
     public boolean shouldTerminate() {
         return shouldTerminate;
@@ -249,7 +250,6 @@ public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> 
             byte[] newArray = Arrays.copyOfRange(data, data.length - Len, Len);
             readData.add(new DATA((short) Len, numOfPackets, newArray));
             connections.send(connId, readData.poll());
-
     }
 }
 
