@@ -1,12 +1,13 @@
 package bgu.spl171.net.srv;
 
 import bgu.spl171.net.api.MessageEncoderDecoder;
-import bgu.spl171.net.api.MessagingProtocol;
+import bgu.spl171.net.api.BidiMessagingProtocol;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.channels.ClosedSelectorException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
+import bgu.spl171.net.api.bidi.ConnectionsImpl;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -15,23 +16,24 @@ import java.util.function.Supplier;
 public class Reactor<T> implements Server<T> {
 
     private final int port;
-    private final Supplier<MessagingProtocol<T>> protocolFactory;
+    private final Supplier<BidiMessagingProtocol<T>> protocolFactory;
     private final Supplier<MessageEncoderDecoder<T>> readerFactory;
     private final ActorThreadPool pool;
     private Selector selector;
-
+    ConnectionsImpl temp;
     private Thread selectorThread;
     private final ConcurrentLinkedQueue<Runnable> selectorTasks = new ConcurrentLinkedQueue<>();
 
     public Reactor(
             int numThreads,
             int port,
-            Supplier<MessagingProtocol<T>> protocolFactory,
+            Supplier<BidiMessagingProtocol<T>> protocolFactory,
             Supplier<MessageEncoderDecoder<T>> readerFactory) {
 
         this.pool = new ActorThreadPool(numThreads);
         this.port = port;
         this.protocolFactory = protocolFactory;
+        this.temp = new ConnectionsImpl();
         this.readerFactory = readerFactory;
     }
 

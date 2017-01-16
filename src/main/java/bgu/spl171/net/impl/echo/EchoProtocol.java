@@ -1,9 +1,9 @@
 package bgu.spl171.net.impl.echo;
 
-import bgu.spl171.net.api.MessagingProtocol;
+import bgu.spl171.net.api.BidiMessagingProtocol;
 import java.time.LocalDateTime;
 
-public class EchoProtocol implements MessagingProtocol<String> {
+public class EchoProtocol implements BidiMessagingProtocol<String> {
 
     private boolean shouldTerminate = false;
 

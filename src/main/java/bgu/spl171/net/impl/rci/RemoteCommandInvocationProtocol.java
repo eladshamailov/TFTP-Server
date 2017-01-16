@@ -1,9 +1,9 @@
 package bgu.spl171.net.impl.rci;
 
-import bgu.spl171.net.api.MessagingProtocol;
+import bgu.spl171.net.api.BidiMessagingProtocol;
 import java.io.Serializable;
 
-public class RemoteCommandInvocationProtocol<T> implements MessagingProtocol<Serializable> {
+public class RemoteCommandInvocationProtocol<T> implements BidiMessagingProtocol<Serializable> {
 
     private T arg;
 

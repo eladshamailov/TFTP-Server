@@ -1,6 +1,6 @@
 package bgu.spl171.net.api;
 
-public interface MessagingProtocol<T> {
+public interface BidiMessagingProtocol<T> {
  
     /**
      * process the given message 
