@@ -60,6 +60,7 @@ public interface Server<T> extends Closeable {
         Supplier<MessageEncoderDecoder<Packet>> encDecFactory = () ->  new MessageEncoderDecoderImpl();
         Server<Packet> tpc = threadPerClient(7777,protocolFactory,encDecFactory);
         tpc.serve();
-
+//        Server<Packet> Reactor1 = reactor(4,7777,protocolFactory,encDecFactory);
+//        Reactor1.serve();
     }
 }
