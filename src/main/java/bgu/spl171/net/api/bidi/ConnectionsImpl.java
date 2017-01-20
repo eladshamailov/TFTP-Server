@@ -1,6 +1,8 @@
 package bgu.spl171.net.api.bidi;
 import bgu.spl171.net.srv.bidi.ConnectionHandler;
 
+import java.io.IOException;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -12,25 +14,48 @@ public class ConnectionsImpl<Packet> implements Connections<Packet> {
     private AtomicInteger connId=new AtomicInteger(0);
     @Override
     public boolean send(int connectionId, Packet msg) {
-        if( connections.containsKey(connectionId)){
-            connections.get(connectionId).send(msg);
-            return true;
-        }
-        else
+        if(connections==null)
             return false;
+        else {
+            if (connections.containsKey(connectionId)) {
+                connections.get(connectionId).send(msg);
+                return true;
+            } else
+                return false;
+        }
     }
 
     @Override
     public void broadcast(Packet msg) {
-        for(int i=0;i<connections.size();i++){
-            connections.get(i).send(msg);
+        Set<Integer> tmpSetOfKeys=connections.keySet();
+        if(!(tmpSetOfKeys.isEmpty())) {
+            for (int i = 0; i < tmpSetOfKeys.size(); i++) {
+                connections.get(i).send(msg);
+            }
         }
     }
 
     @Override
-    public void disconnect(int connectionId) {
-        if( connections.containsKey(connectionId))
+    public void disconnect(int connectionId) throws IOException{
+        //TODO:check if the close() needed
+        if( connections.containsKey(connectionId)) {
+            connections.get(connectionId).close();
             connections.remove(connectionId);
         }
+        }
 
+        public int registerNewId(){
+        int ans=connId.getAndIncrement();
+        return ans;
+    }
+
+    public int getCurrentId(){
+            return connId.get();
+    }
+
+    public int addNewConnection(ConnectionHandler cnh){
+        int newId = registerNewId();
+        connections.put(newId,cnh);
+        return newId;
+    }
 }

@@ -1,7 +1,7 @@
 package bgu.spl171.net.srv;
 
 import bgu.spl171.net.api.MessageEncoderDecoder;
-import bgu.spl171.net.api.BidiMessagingProtocol;
+import bgu.spl171.net.api.bidi.BidiMessagingProtocol;
 import bgu.spl171.net.srv.bidi.ConnectionHandler;
 import java.io.IOException;
 import java.io.BufferedInputStream;
@@ -25,6 +25,7 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
 
     @Override
     public void run() {
+
         try (Socket sock = this.sock) { //just for automatic closing
             int read;
 
@@ -34,11 +35,7 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
             while (connected && (read = in.read()) >= 0) {
                 T nextMessage = encdec.decodeNextByte((byte) read);
                 if (nextMessage != null) {
-                    T response = protocol.process(nextMessage);
-                    if (response != null) {
-                        out.write(encdec.encode(response));
-                        out.flush();
-                    }
+                    protocol.process(nextMessage);
                 }
             }
 

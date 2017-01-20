@@ -1,5 +1,6 @@
 package bgu.spl171.net.api.bidi;
 
+import bgu.spl171.net.api.*;
 import bgu.spl171.net.packets.*;
 
 import java.io.File;
@@ -25,6 +26,7 @@ import java.util.concurrent.LinkedBlockingDeque;
  * Created by elad on 1/12/17.
  */
 public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> {
+    private final int maxPacketSize=(1<<9);
     private Connections<Packet> connections;
     private int connId;
     private static ConcurrentHashMap<Integer, String> activeClients=new ConcurrentHashMap<>();
@@ -33,6 +35,7 @@ public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> 
     private LinkedBlockingDeque<byte[]> writeData;
     private boolean shouldTerminate = false;
     private String fName;
+    private final String filesDir="Files/";
 
     @Override
     public void start(int connectionId, Connections<Packet> connections) {
@@ -41,54 +44,68 @@ public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> 
         writing=new ConcurrentLinkedDeque<>();
         readData=new LinkedBlockingDeque<>();
         writeData=new LinkedBlockingDeque<>();
+        fName="";
     }
 
     @Override
     public void process(Packet message) {
-        boolean loggedSuccessfully = handleLOGRQ(message);
-        if (loggedSuccessfully) {
-            switch (message.getOpCode()) {
-                case 1: {
-                    RRQ rrqPack=(RRQ)message;
-                    handlesRRQ(rrqPack);
-                    break;
-                }
-                case 2:{
-                    WRQ wrqPack=(WRQ)message;
-                    handlesWRQ(wrqPack);
-                break;
-                }
-                case 3:{
-                    DATA dataPack = (DATA) message;
-                    handlesDATA(dataPack);
-                        break;
-                    }
-                case 4:{
-                    if(!readData.isEmpty())
-                        connections.send(connId,readData.poll());
-                    break;
-                }
-                case 6:{
-                    handlesDIRQ();
-                    break;
-                }
-                case 7:{
-                    connections.send(connId,new ERROR((short)7));
-                    break;
-                }
-                case 8:{
-                    DELRQ delrqPack=(DELRQ)message;
-                    handlesDELRQ(delrqPack);
-                    break;
-                }
-                case 10:{
-                    handlesDISC();
-                    break;
-                }
+        if(message!=null) {
+            boolean loggedSuccessfully = handleLOGRQ(message);
+            if (loggedSuccessfully) {
+                handleMessage(message);
             }
+        }
+        else{
+            connections.send(connId, new ERROR((short) 4));
         }
     }
 
+    private void handleMessage(Packet message){
+        switch (message.getOpCode()) {
+            case 1: {
+                RRQ rrqPack=(RRQ)message;
+                handlesRRQ(rrqPack);
+                break;
+            }
+            case 2:{
+                WRQ wrqPack=(WRQ)message;
+                handlesWRQ(wrqPack);
+                break;
+            }
+            case 3:{
+                DATA dataPack = (DATA) message;
+                handlesDATA(dataPack);
+                break;
+            }
+            case 4:{
+                if(!readData.isEmpty())
+                    connections.send(connId,readData.poll());
+                break;
+            }
+            case 6:{
+                handlesDIRQ();
+                break;
+            }
+            case 7:{
+                connections.send(connId,new ERROR((short)7));
+                break;
+            }
+            case 8:{
+                DELRQ delrqPack=(DELRQ)message;
+                handlesDELRQ(delrqPack);
+                break;
+            }
+            case 10 :{
+                try {
+                    handlesDISC();
+                }
+                catch (IOException exp) {
+                    connections.send(connId, new ERROR((short) 2));
+                }
+                break;
+            }
+        }
+    }
     /**
      * handles the login process
      * @param message
@@ -96,17 +113,16 @@ public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> 
      */
     private boolean handleLOGRQ(Packet message){
         boolean ans=false;
-        if (message==null){
-            connections.send(connId, new ERROR((short) 4));
-        }
-        else {
-            if(message.getOpCode()==7){//if the user chose to connect LOGCQ
+        if(message!=null) {
+            if(message.getOpCode()==7&&!ans){//if the user chose to connect LOGCQ
                 if(activeClients.containsValue((((LOGRQ)message).getUserName()))) {
                     connections.send(connId, new ERROR((short) 7));
                 }
                 else{
-                    activeClients.put(connId,((LOGRQ)message).getUserName());
-                    connections.send(connId,new ACK((short)0));
+                    if(!ans) {
+                        activeClients.put(connId, ((LOGRQ) message).getUserName());
+                        connections.send(connId, new ACK((short) 0));
+                    }
                 }
             }
             else{
@@ -118,11 +134,14 @@ public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> 
                 }
             }
         }
+        else {
+            connections.send(connId, new ERROR((short) 4));
+        }
         return ans;
     }
     private void handlesRRQ(RRQ rrqPack){
         try {
-            Path path=Paths.get("/Files", rrqPack.getName());
+            Path path=Paths.get("Files", rrqPack.getName());
             if (!isWriting(rrqPack.getName())) {
                 byte[] data=Files.readAllBytes(path);
                 sendData(data);
@@ -136,9 +155,7 @@ public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> 
         }
     }
     private void handlesWRQ(WRQ wrqPack){
-        String filesName=wrqPack.getFileName();
-        String path="/Files/"+filesName;
-        File file = new File(path);
+        File file =WRQFileCreateor(wrqPack);
         try {
             if (file.createNewFile() && !isWriting(wrqPack.getFileName())) {
                 fName = wrqPack.getFileName();
@@ -151,11 +168,22 @@ public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> 
             connections.send(connId, new ERROR((short) 2));
         }
     }
+
+    /**
+     * creates newFile used in handlesWRQ
+     * @param wrqPack
+     * @return new File
+     */
+    private File WRQFileCreateor(WRQ wrqPack){
+        String filesName=wrqPack.getFileName();
+        String path=filesDir+filesName;
+        return new File(path);
+    }
     private void handlesDATA(DATA dataPack) {
         writeData.addLast(dataPack.getData());
         connections.send(connId, new ACK(dataPack.getBlock()));
-        if ((dataPack).getPacketSize() < (1 << 9)) {
-            try (FileOutputStream fileOutputStream = new FileOutputStream("/Files/" + fName)) {
+        if ((dataPack).getPacketSize() < (1 << 9)&&dataPack.getPacketSize()<maxPacketSize) {
+            try (FileOutputStream fileOutputStream = new FileOutputStream(filesDir + fName)) {
                 int bLength=0;
                 Iterator<byte[]> it = writeData.iterator();
                 while (it.hasNext()){
@@ -198,7 +226,7 @@ public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> 
     }
     private void handlesDELRQ(DELRQ delrqPack){
         String filesName=delrqPack.getFileName();
-        String path = "/Files/"+filesName;
+        String path = filesDir+filesName;
         //TODO:check if broadcast or send
         try {
             Files.delete(Paths.get(path));
@@ -215,7 +243,7 @@ public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> 
             connections.send(connId,new ERROR((short)2));
         }
     }
-    private void handlesDISC(){
+    private void handlesDISC() throws IOException{
         activeClients.remove(connId);
         shouldTerminate=true;
         connections.send(connId,new ACK((short)0));

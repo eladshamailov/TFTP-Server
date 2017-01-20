@@ -1,11 +1,20 @@
 package bgu.spl171.net.api;
 
 import bgu.spl171.net.packets.Packet;
+
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import bgu.spl171.net.packets.*;
 import com.sun.deploy.util.ArrayUtil;
+
+import java.nio.file.*;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.nio.ByteBuffer;
+import java.util.Iterator;
 
 
 /**
@@ -114,6 +123,31 @@ public class MessageEncoderDecoderImpl implements MessageEncoderDecoder<Packet> 
                 return null;
         }
     }
+    private byte[] handleLOGRQ(LOGRQ logrqPack){
+        byte[] answer;
+        byte[] result = fromShortToBytes(logrqPack.getOpCode());
+        answer = mergeArrays(result,logrqPack.getUserName().getBytes());
+        return answer;
+    }
+
+    private byte[]  handlesRRQ(RRQ rrqPack){
+        byte[] answer;
+        byte[] result = fromShortToBytes((short)1);
+        answer = mergeArrays(result,rrqPack.getName().getBytes());
+        return answer;
+    }
+    private byte[]  handlesWRQ(WRQ wrqPack){
+        byte[] answer;
+        byte[] result = fromShortToBytes((short)2);
+        answer = mergeArrays(result,wrqPack.getFileName().getBytes());
+        return answer;
+    }
+    private byte[] handlesDELRQ(DELRQ delrqPack){
+        byte[] answer;
+        byte[] result = fromShortToBytes((short)8);
+        answer = mergeArrays(result,delrqPack.getFileName().getBytes());
+        return answer;
+    }
 
 
     /**
@@ -128,12 +162,10 @@ public class MessageEncoderDecoderImpl implements MessageEncoderDecoder<Packet> 
         byte[] answer=null;
         switch (message.getOpCode()){
             case 1:
-                RRQ RRQPacket = (RRQ)message;
-                answer = mergeArrays(result,RRQPacket.getName().getBytes());
+               answer=handlesRRQ((RRQ)message);
                 break;
             case 2:
-                WRQ WRQPacket = (WRQ)message;
-                answer = mergeArrays(result,WRQPacket.getFileName().getBytes());
+               answer=handlesWRQ((WRQ)message);
                 break;
             case 3:
                 DATA DATAPacket = (DATA)message;
@@ -153,12 +185,10 @@ public class MessageEncoderDecoderImpl implements MessageEncoderDecoder<Packet> 
                 answer = result;
                 break;
             case 7:
-                LOGRQ LOGRQPacket= (LOGRQ)message;
-                answer = mergeArrays(result,LOGRQPacket.getUserName().getBytes());
+               answer=handleLOGRQ((LOGRQ)message);
                 break;
             case 8:
-                DELRQ DELRQPacket = (DELRQ)message;
-                answer = mergeArrays(result,DELRQPacket.getFileName().getBytes());
+               answer=handlesDELRQ((DELRQ)message);
                 break;
             case 9:
                 BCAST BCASTPacket = (BCAST)message;
@@ -185,9 +215,6 @@ public class MessageEncoderDecoderImpl implements MessageEncoderDecoder<Packet> 
 
         return answer;
     }
-
-
-
 
     private short fromBytesToShort(byte[] byteArr) {
         short finish = (short) ((byteArr[0] & 0xff) << 8);

@@ -1,7 +1,11 @@
 package bgu.spl171.net.srv;
 
 import bgu.spl171.net.api.MessageEncoderDecoder;
-import bgu.spl171.net.api.BidiMessagingProtocol;
+import bgu.spl171.net.api.MessageEncoderDecoderImpl;
+import bgu.spl171.net.api.bidi.BidiMessagingProtocol;
+import bgu.spl171.net.api.bidi.BidiMessagingProtocolImpl;
+import bgu.spl171.net.packets.Packet;
+
 import java.io.Closeable;
 import java.util.function.Supplier;
 
@@ -51,4 +55,11 @@ public interface Server<T> extends Closeable {
         return new Reactor<T>(nthreads, port, protocolFactory, encoderDecoderFactory);
     }
 
+    public static void main(String []args){
+        Supplier<BidiMessagingProtocol<Packet>> protocolFactory = () -> new BidiMessagingProtocolImpl();
+        Supplier<MessageEncoderDecoder<Packet>> encDecFactory = () ->  new MessageEncoderDecoderImpl();
+        Server<Packet> tpc = threadPerClient(7777,protocolFactory,encDecFactory);
+        tpc.serve();
+
+    }
 }
