@@ -9,6 +9,7 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 
 import bgu.spl171.net.api.bidi.BidiMessagingProtocol;
+import bgu.spl171.net.api.bidi.BidiMessagingProtocolImpl;
 import bgu.spl171.net.api.bidi.ConnectionsImpl;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
@@ -98,12 +99,14 @@ public class Reactor<T> implements Server<T> {
     private void handleAccept(ServerSocketChannel serverChan, Selector selector) throws IOException {
         SocketChannel clientChan = serverChan.accept();
         clientChan.configureBlocking(false);
+        BidiMessagingProtocol protocol = protocolFactory.get();
         final NonBlockingConnectionHandler handler = new NonBlockingConnectionHandler(
                 readerFactory.get(),
-                protocolFactory.get(),
+                protocol,
                 clientChan,
                 this);
-
+        int connectionId = temp.addNewConnection(handler);
+        protocol.start(connectionId,temp);
         clientChan.register(selector, SelectionKey.OP_READ, handler);
     }
 
