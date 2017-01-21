@@ -45,11 +45,14 @@ public class MessageEncoderDecoderImpl implements MessageEncoderDecoder<Packet> 
                 if (packetNumber == 10 || packetNumber == 6) {
                     return checkPacket();
                 }
+                break;
+            case 7:
             case 8:
-                if (nextByte=='0'){
+                if (nextByte=='\0'){
                     return checkPacket();
                 }
                 pushByte(nextByte);
+                break;
             case 3:
                 if (opCodeCounter<2 && isFull==false){
                     pushByte(nextByte);
@@ -66,11 +69,13 @@ public class MessageEncoderDecoderImpl implements MessageEncoderDecoder<Packet> 
                     if (opCodeCounter == 0)
                         return checkPacket();
                 }
+                break;
             case 4:
                 pushByte(nextByte);
                 opCodeCounter++;
                 if (opCodeCounter == 2)
                     return checkPacket();
+                break;
         }
         return null;
     }
@@ -209,8 +214,8 @@ public class MessageEncoderDecoderImpl implements MessageEncoderDecoder<Packet> 
                 break;
         }
 
-        if(answer != null){
-            answer = mergeArrays(answer,"0".getBytes());
+        if(message.getOpCode() != 4 && message.getOpCode() != 10 && answer != null){
+            answer = mergeArrays(answer,"\0".getBytes());
         }
 
         return answer;
