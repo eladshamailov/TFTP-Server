@@ -2,8 +2,7 @@
   an  extended  TFTP  (Trivial  File  Transfer  Protocol) 
 server.
  The  communication  is performed  using  a  binary  communication  protocol,  which  will  support  the  upload, 
-downlo
-ad and lookup of files
+download and lookup of files
 ## Introduction
   The implementation of the server will be based on the Reactor and Thread-Per-Client servers.
   The extended TFTP Specification The TFTP (Trivial File TransferProtocol) allows users to upload and download files from a
