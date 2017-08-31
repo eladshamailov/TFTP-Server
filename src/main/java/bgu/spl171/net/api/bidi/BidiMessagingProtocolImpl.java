@@ -8,33 +8,33 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.util.Arrays;
+import java.util.*;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.*;
-import java.util.ArrayList;
 import java.nio.file.Files;
 import java.util.Arrays;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Iterator;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.LinkedBlockingQueue;
 
 /**
  * Created by elad on 1/12/17.
  */
 public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> {
+    private boolean shouldTerminate = false;
     private final int maxPacketSize=(1<<9);
     private Connections<Packet> connections;
     private int connId;
     private static ConcurrentHashMap<Integer, String> activeClients=new ConcurrentHashMap<>();
+    private String fName;
     private ConcurrentLinkedDeque<String> writing;
+    private int []checking;
     private LinkedBlockingDeque<DATA> readData;
     private LinkedBlockingDeque<byte[]> writeData;
-    private boolean shouldTerminate = false;
-    private String fName;
     private final String filesDir="Files/";
 
     @Override
@@ -45,6 +45,7 @@ public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> 
         readData=new LinkedBlockingDeque<>();
         writeData=new LinkedBlockingDeque<>();
         fName="";
+        checking=new int[8];
     }
 
     @Override
@@ -179,6 +180,31 @@ public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> 
         String path=filesDir+filesName;
         return new File(path);
     }
+    private void sendData(byte[] data){
+        int len = data.length;
+        boolean check=true;
+        readData.clear();
+        int [] numOfPackets={0};
+        if (len>(1<<9)) {
+            check=DATAReader(data,numOfPackets,len);
+        }
+        if(check) {
+            byte[] newArray = Arrays.copyOfRange(data, data.length - len, len);
+            readData.add(new DATA((short) len, (short) numOfPackets[0], newArray));
+            connections.send(connId, readData.poll());
+        }
+    }
+    private boolean DATAReader(byte[]data,int[] numOfPackets,int len){
+        byte[] ArrayToSend;
+        while (len > (1 << 9)) {
+             ArrayToSend = Arrays.copyOfRange(data, 512 * numOfPackets[0], 512 * (numOfPackets[0] + 1));
+            readData.add(new DATA((short) 512,(short)(numOfPackets[0]+1), ArrayToSend));
+            numOfPackets[0]++;
+            len -= 512;
+        }
+        return true;
+    }
+
     private void handlesDATA(DATA dataPack) {
         writeData.addLast(dataPack.getData());
         connections.send(connId, new ACK(dataPack.getBlock()));
@@ -200,7 +226,7 @@ public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> 
                     }
                 }
                 fileOutputStream.write(temp);
-                connections.send(connId, new BCAST(fName, (byte) 1));
+                connections.send(connId, new BCAST(fName,(byte)1));
             } catch (NoSuchFileException e) {
                 connections.send(connId, new ERROR((short) 1));
             } catch (IOException exp) {
@@ -210,12 +236,13 @@ public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> 
     }
     private void handlesDIRQ() {
         String str = "";
-        File[] tmp = (new File("/Files")).listFiles();
+        File[] tmp = (new File("Files")).listFiles();
         ArrayList<File> filesList = new ArrayList<>();
         for (int i = 0; i < tmp.length; i++) {
             filesList.add(tmp[i]);
         }
-        if (!filesList.isEmpty()) {
+        boolean check=filesList!=null;
+        if (check&&!filesList.isEmpty()) {
             char divByZero = '\0';
             for (int i = 0; i < filesList.size(); i++) {
                 if (filesList.get(i).isFile())
@@ -226,23 +253,29 @@ public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> 
     }
     private void handlesDELRQ(DELRQ delrqPack){
         String filesName=delrqPack.getFileName();
-        String path = filesDir+filesName;
-        //TODO:check if broadcast or send
-        try {
-            Files.delete(Paths.get(path));
-            connections.send(connId,new ACK((short)0));
-            connections.broadcast(new BCAST(delrqPack.getFileName(),(byte)0));
-        }
-        catch (DirectoryNotEmptyException e){
-            connections.send(connId,new ERROR((short)0));
-        }
-        catch (NoSuchFileException e){
-            connections.send(connId,new ERROR((short)1));
-        }
-        catch (IOException x) {
-            connections.send(connId,new ERROR((short)2));
+        if (!filesName.isEmpty()) {
+            String path = filesDir + filesName;
+            if (!path.isEmpty()) {
+                try {
+                    Files.delete(Paths.get(path));
+                    connections.send(connId, new ACK((short) 0));
+                    castDELRQ(delrqPack);
+                } catch (DirectoryNotEmptyException e) {
+                    connections.send(connId, new ERROR((short) 0));
+                } catch (NoSuchFileException e) {
+                    connections.send(connId, new ERROR((short) 1));
+                } catch (IOException x) {
+                    connections.send(connId, new ERROR((short) 2));
+                }
+            }
         }
     }
+    private void castDELRQ(DELRQ delrqPack) {
+        for (ConcurrentHashMap.Entry<Integer, String> temp : activeClients.entrySet()) {
+            connections.send(temp.getKey(), new BCAST(delrqPack.getFileName(), (byte) 0));
+        }
+    }
+
     private void handlesDISC() throws IOException{
         activeClients.remove(connId);
         shouldTerminate=true;
@@ -262,22 +295,6 @@ public class BidiMessagingProtocolImpl implements BidiMessagingProtocol<Packet> 
                 found=true;
         }
         return found;
-    }
-    private void sendData(byte[] data){
-        int Len = data.length;
-        short numOfPackets = 0;
-        readData.clear();
-        if (Len>(1<<9)) {
-            while (Len > (1 << 9)) {
-                byte[] ArrayToSend = Arrays.copyOfRange(data, 512 * numOfPackets, 512 * (numOfPackets + 1));
-                readData.add(new DATA((short) 512, numOfPackets, ArrayToSend));
-                numOfPackets++;
-                Len -= 512;
-            }
-        }
-            byte[] newArray = Arrays.copyOfRange(data, data.length - Len, Len);
-            readData.add(new DATA((short) Len, numOfPackets, newArray));
-            connections.send(connId, readData.poll());
     }
 }
 

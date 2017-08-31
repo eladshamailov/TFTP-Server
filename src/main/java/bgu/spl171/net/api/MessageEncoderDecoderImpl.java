@@ -1,255 +1,247 @@
+
 package bgu.spl171.net.api;
-
 import bgu.spl171.net.packets.Packet;
-
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import bgu.spl171.net.packets.*;
-import com.sun.deploy.util.ArrayUtil;
-
-import java.nio.file.*;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.nio.ByteBuffer;
-import java.util.Iterator;
-
 
 /**
  * Created by nir on 15/01/17.
  */
 public class MessageEncoderDecoderImpl implements MessageEncoderDecoder<Packet> {
-    private byte[] bytesArray = new byte[1 << 10];
-    private int length = 0;
-    private short packetNumber = 0;
-    private int opCodeCounter = 2;
-    boolean isFull=false;
+    private byte[] arr = new byte[1 << 10];
+    private short packetNumber = -1;
+    private int checks[] = {0, 1, 5, 6};
+    private int[] counter = {0, 2, 0, 2, 0, 2, 0};
+    private String packetNumValidation = "123478";
+    private int[] validation = {1, 2, 3, 4, 7, 8,2,2};
+    final char endOfLine='\0';
 
-    /**
-     * not possible to return packets: 1,2,5,6,7
-     *
-     *
-     */
+    @Override
     public Packet decodeNextByte(byte nextByte) {
+        boolean found = false;
         switch (packetNumber) {
-            case 0:
-                if (opCodeCounter > 0) {
-                    pushByte(nextByte);
-                    opCodeCounter=opCodeCounter-1;
-                }
-                if (opCodeCounter==0){
-                    packetNumber = fromBytesToShort(Arrays.copyOfRange(bytesArray, 0, 2));
-                }
-                if (packetNumber == 10 || packetNumber == 6) {
-                    return checkPacket();
-                }
+            case -1: {
+                found = otherCaseHandler(nextByte, found);
+                if (found)
+                    return getNewPacket();
+                break;
+            }
+            case 1:
+                found=checkIfEndOfLine(nextByte,found);
+                if (found)
+                    return getNewPacket();
+                break;
+            case 2:
+                found=checkIfEndOfLine(nextByte,found);
+                if (found)
+                    return getNewPacket();
                 break;
             case 7:
-            case 8:
-                if (nextByte=='\0'){
-                    return checkPacket();
-                }
-                pushByte(nextByte);
+                found=checkIfEndOfLine(nextByte,found);
+                if (found)
+                    return getNewPacket();
                 break;
+            case 8: {
+                found=checkIfEndOfLine(nextByte,found);
+                if (found)
+                    return getNewPacket();
+                break;
+            }
             case 3:
-                if (opCodeCounter<2 && isFull==false){
-                    pushByte(nextByte);
-                    opCodeCounter=opCodeCounter+1;
-                }
-                if (opCodeCounter==2 && isFull==false){
-                    opCodeCounter= fromBytesToShort(Arrays.copyOfRange(bytesArray,0,2))+2;
-                    isFull=true;
-                }
-                else
-                {
-                    pushByte(nextByte);
-                    opCodeCounter--;
-                    if (opCodeCounter == 0)
-                        return checkPacket();
-                }
+                found= caseThreeHandler(nextByte,found);
+                if (found)
+                    return getNewPacket();
                 break;
             case 4:
-                pushByte(nextByte);
-                opCodeCounter++;
-                if (opCodeCounter == 2)
-                    return checkPacket();
+                found=true;
+                byteInsert(nextByte);
+                counter[1]=counter[1]+1;
+                counter[3]=counter[3]+1;
+                if (counter[1] != 2)
+                    found=false;
+                if (found)
+                    return getNewPacket();
                 break;
         }
         return null;
     }
-
-    private Packet checkPacket() {
-        short opCode = fromBytesToShort(Arrays.copyOfRange(bytesArray,0,2));
-        int tempLength = length;
-        this.length = 0;
-        this.opCodeCounter =2;
-        this.packetNumber = 0;
-
-        switch (opCode){
-            case 1:
-                return new RRQ(new String(bytesArray, 2, tempLength- 3, StandardCharsets.UTF_8));
-            case 2:
-                return new WRQ(new String(bytesArray, 2, tempLength - 3, StandardCharsets.UTF_8));
+        private boolean otherCaseHandler(byte nextByte,boolean found) {
+            if(counter[1]<0)
+                found=false;
+            else {
+                if (counter[1] > 0) {
+                    counter[3]=counter[3]-1;
+                    counter[1]=counter[1]-1;
+                    byteInsert(nextByte);
+                }
+                if (counter[1] == 0) {
+                    packetNumber = bytesToShort(Arrays.copyOfRange(arr, 0, 2));
+                    if (packetNumber == 6 || packetNumber == 10)
+                        found = true;
+                    else {
+                        boolean send = true;
+                        for (int i = 0; i < validation.length&&send; i++)
+                            if (packetNumber == validation[i])
+                                send = false;
+                        if (send)
+                            found = true;
+                    }
+                }
+            }
+            return found;
+        }
+    private boolean caseThreeHandler(byte nextByte, boolean found){
+        if(counter[5]<0){
+            if(counter[6]>0){
+                counter[6]=counter[6]-1;
+                byteInsert(nextByte);
+                if (counter[6] == 0)
+                    found=true;
+            }
+        }
+        else{
+            if(counter[5]!=0){
+                byteInsert(nextByte);
+                counter[5]=counter[5]-1;
+            }
+            else{
+                int valueToAdd=bytesToShort(Arrays.copyOfRange(arr, 2, 4));
+                counter[6] = valueToAdd+2;
+                counter[5]=counter[5]-1;
+            }
+        }
+        return found;
+    }
+    private boolean checkIfEndOfLine(byte nextByte, boolean found) {
+        if(nextByte!=endOfLine)
+            byteInsert(nextByte);
+        else
+            found=true;
+        return found;
+    }
+        @Override
+    public byte[] encode(Packet message) {
+        byte[]ans;
+        byte[] endLine = {((byte)endOfLine)};
+        switch (message.getOpCode()) {
             case 3:
-                short packetSize = fromBytesToShort(Arrays.copyOfRange(bytesArray,2,4));
-                short block = fromBytesToShort(Arrays.copyOfRange(bytesArray,4,6));
-                byte[] data = Arrays.copyOfRange(bytesArray,6,bytesArray.length-1);
-                return new DATA(packetSize,block,data);
+                ans=DATAEncode((DATA)message);
+                return ans;
             case 4:
-                return new ACK(fromBytesToShort(Arrays.copyOfRange(bytesArray,2,4)));
+                ACK ackPack = (ACK) message;
+                return concatenateArrays(shortToBytes(message.getOpCode()), shortToBytes(ackPack.getBlock()));
             case 5:
-                short error = fromBytesToShort(Arrays.copyOfRange(bytesArray,2,4));
-                return new ERROR(error);
-            case 6:
-                return new DIRQ();
-            case 7:
-                return new LOGRQ(new String(bytesArray, 2, tempLength - 3, StandardCharsets.UTF_8));
-            case 8:
-                return new DELRQ(new String(bytesArray, 2, tempLength - 3, StandardCharsets.UTF_8));
+                ans=ERROREncode((ERROR)message,endLine );
+                return ans;
             case 9:
-                String answer = new String(bytesArray, 2, 1, StandardCharsets.UTF_8);
-                byte deletedOrAdded;
-                if(answer == "0"){
-                    deletedOrAdded = '0';
-                }
-                else if(answer == "1"){
-                    deletedOrAdded = '1';
-                }
-                else{
-                    throw new IllegalArgumentException("BCAST deleted Or added is not ok");
-                }
-                String fileName = new String(bytesArray, 3, tempLength - 4, StandardCharsets.UTF_8);
-                return new BCAST(fileName,deletedOrAdded);
-            case 10:
-                return new DISC();
+                byte[] tmp;
+                byte[] bcastArr;
+                BCAST bcastPack = (BCAST)message;
+                byte[] arr1={0};
+                byte[]arr2={1};
+                if (bcastPack.isDeletedOrAdded()=='1')
+                    bcastArr = concatenateArrays(shortToBytes(message.getOpCode()), arr2);
+                else
+                    bcastArr = concatenateArrays(shortToBytes(message.getOpCode()), arr1);
+                tmp = concatenateArrays(bcastArr, bcastPack.getFileName().getBytes());
+                return concatenateArrays(tmp,endLine);
             default:
                 return null;
         }
     }
-    private byte[] handleLOGRQ(LOGRQ logrqPack){
-        byte[] answer;
-        byte[] result = fromShortToBytes(logrqPack.getOpCode());
-        answer = mergeArrays(result,logrqPack.getUserName().getBytes());
-        return answer;
+    public byte[] DATAEncode(DATA dataPack){
+        byte[] sum = shortToBytes((short)3);
+        counter[4]=counter[4]+1;
+        sum = concatenateArrays(sum, shortToBytes(dataPack.getPacketSize()));
+        sum = concatenateArrays(sum, shortToBytes(dataPack.getBlock()));
+        return concatenateArrays(sum, dataPack.getData());
+    }
+    public byte[] ERROREncode(ERROR errorPack,byte []zeroArr) {
+        byte[] tmp;
+        byte[] tempErrorArr = concatenateArrays(shortToBytes((short)5), shortToBytes(errorPack.getErrorCode()));
+        tmp = concatenateArrays(tempErrorArr, errorPack.getErrorMessage().getBytes());
+        return concatenateArrays(tmp, zeroArr);
+    }
+    private byte[] concatenateArrays(byte[] arr1, byte[] arr2) {
+        int len1 = arr1.length;
+        int len2 = arr2.length;
+        byte[] c= new byte[len1+len2];
+        System.arraycopy(arr1, 0, c, 0, len1);
+        System.arraycopy(arr2, 0, c, len1, len2);
+        return c;
     }
 
-    private byte[]  handlesRRQ(RRQ rrqPack){
-        byte[] answer;
-        byte[] result = fromShortToBytes((short)1);
-        answer = mergeArrays(result,rrqPack.getName().getBytes());
-        return answer;
-    }
-    private byte[]  handlesWRQ(WRQ wrqPack){
-        byte[] answer;
-        byte[] result = fromShortToBytes((short)2);
-        answer = mergeArrays(result,wrqPack.getFileName().getBytes());
-        return answer;
-    }
-    private byte[] handlesDELRQ(DELRQ delrqPack){
-        byte[] answer;
-        byte[] result = fromShortToBytes((short)8);
-        answer = mergeArrays(result,delrqPack.getFileName().getBytes());
-        return answer;
-    }
-
-
-    /**
-     * encodes the given message to bytes array
-     *
-     * @param message the message to encode
-     * @return the encoded bytes
-     */
-    @Override
-    public byte[] encode(Packet message) {
-        byte[] result = fromShortToBytes(message.getOpCode());
-        byte[] answer=null;
-        switch (message.getOpCode()){
-            case 1:
-               answer=handlesRRQ((RRQ)message);
-                break;
-            case 2:
-               answer=handlesWRQ((WRQ)message);
-                break;
-            case 3:
-                DATA DATAPacket = (DATA)message;
-                byte[] tempDataArr = mergeArrays(result,fromShortToBytes(DATAPacket.getBlock()));
-                answer = mergeArrays(tempDataArr,DATAPacket.getData());
-                break;
-            case 4:
-                ACK ACKPacket = (ACK)message;
-                answer = mergeArrays(result,fromShortToBytes(ACKPacket.getBlock()));
-                break;
-            case 5:
-                ERROR ErrorPacket = (ERROR)message;
-                byte[] tempErrorArr = mergeArrays(result,fromShortToBytes(ErrorPacket.getErrorCode()));
-                answer = mergeArrays(tempErrorArr,ErrorPacket.getErrorMessage().getBytes());
-                break;
-            case 6:
-                answer = result;
-                break;
-            case 7:
-               answer=handleLOGRQ((LOGRQ)message);
-                break;
-            case 8:
-               answer=handlesDELRQ((DELRQ)message);
-                break;
-            case 9:
-                BCAST BCASTPacket = (BCAST)message;
-                byte[] tempBCASTArr;
-                if(BCASTPacket.isDeletedOrAdded()=='1')
-                    tempBCASTArr = mergeArrays(result,"1".getBytes());
-                else if(BCASTPacket.isDeletedOrAdded()=='0')
-                    tempBCASTArr = mergeArrays(result,"0".getBytes());
-                else
-                    throw new IllegalArgumentException("BCAST deleted Or added is not ok");
-                answer = mergeArrays(tempBCASTArr,BCASTPacket.getFileName().getBytes());
-                break;
-            case 10:
-                answer = result;
-                break;
-            default:
-                answer = null;
-                break;
+    private Packet getNewPacket() {
+        byte[]tmp= Arrays.copyOfRange(arr, 0, 2);
+        short opCode = bytesToShort(tmp);
+        int length = counter[0]-2;
+        counter[0] = 0;
+        counter[1] = 2;
+        counter[2]=0;
+        counter[3]=2;
+        counter[5] = 2;
+        counter[6] = 0;
+        packetNumber = -1;
+        int offset=2;
+        String ans=new String(arr, offset, length, StandardCharsets.UTF_8);
+        if(opCode==1)
+            return new RRQ(ans);
+        else if(opCode==2)
+            return new WRQ(ans);
+        else if(opCode==6)
+            return new DIRQ();
+        else if(opCode==7)
+            return new LOGRQ(ans);
+        else if(opCode==8)
+            return new DELRQ(ans);
+        else if(opCode==10)
+            return new DISC();
+        else{
+            switch (opCode) {
+                case 1:
+                    return new RRQ(ans);
+                case 2:
+                    return new WRQ(ans);
+                case 3:
+                    short packetSize = bytesToShort(Arrays.copyOfRange(arr, offset, 4));
+                    short block = bytesToShort(Arrays.copyOfRange(arr, 4, 6));
+                    byte[] data = Arrays.copyOfRange(arr, 6, 6 + packetSize);
+                    counter[4] = counter[4] + 1;
+                    return new DATA(packetSize, block, data);
+                case 4:
+                    return new ACK(bytesToShort(Arrays.copyOfRange(arr, offset, 4)));
+                    default:
+                        return null;
+            }
         }
-
-        if(message.getOpCode() != 4 && message.getOpCode() != 10 && answer != null){
-            answer = mergeArrays(answer,"\0".getBytes());
+    }
+    private void byteInsert(byte nextByte) {
+        if (isNewCopy(nextByte)) {
+            int length=counter[0]*2;
+            arr = Arrays.copyOf(arr, length);
         }
-
-        return answer;
+        int size=counter[0]++;
+        arr[size] = nextByte;
+    }
+    private boolean isNewCopy(byte nextByte){
+        boolean newCopy;
+        if(counter[0] < arr.length)
+            newCopy=false;
+        else
+            newCopy=true;
+        return newCopy;
+    }
+    public short bytesToShort(byte[] byteArr) {
+        short result = (short) ((byteArr[0] & 0xff) << 8);
+        result += (short) (byteArr[1] & 0xff);
+        return result;
     }
 
-    private short fromBytesToShort(byte[] byteArr) {
-        short finish = (short) ((byteArr[0] & 0xff) << 8);
-        finish += (short) (byteArr[1] & 0xff);
-        return finish;
-    }
-
-    private byte[] fromShortToBytes(short num) {
-        byte[] bytes = new byte[2];
-        bytes[0] = (byte) ((num >> 8) & 0xFF);
-        bytes[1] = (byte) (num & 0xFF);
-        return bytes;
-    }
-
-    private byte[] mergeArrays(byte[] a, byte[] b) {
-        byte[] complete = new byte[a.length + b.length];
-        for (int i = 0; i < a.length && i < complete.length; i++) {
-            complete[i] = a[i];
-        }
-        for (int i = 0; i < b.length && i < complete.length; i++) {
-            complete[i + a.length] = b[i];
-        }
-        return complete;
-    }
-
-    private void pushByte(byte nextByte) {
-        if (length >= bytesArray.length) {
-            bytesArray = Arrays.copyOf(bytesArray, length * 2);
-        }
-
-        bytesArray[length++] = nextByte;
+    public byte[] shortToBytes(short num) {
+        byte[] bytesArr = new byte[2];
+        bytesArr[0] = (byte) ((num >> 8) & 0xFF);
+        bytesArr[1] = (byte) (num & 0xFF);
+        return bytesArr;
     }
 }
