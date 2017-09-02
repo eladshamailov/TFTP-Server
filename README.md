@@ -6,8 +6,8 @@ download and lookup of files
 ## Introduction
   The implementation of the server will be based on the Reactor and Thread-Per-Client servers.
   The extended TFTP Specification The TFTP (Trivial File TransferProtocol) allows users to upload and download files from a
-  given server. Our extendedversion will require a user to perform a passwordless server 
-  login as well as enable theserver to communicate broadcast messages to all 
+  given server. Our extended version will require a user to perform a password less server 
+  login as well as enable the server to communicate broadcast messages to all 
   users and support for directory listings. 
   ## Supported Commands
   The extended TFTP supports 10 types of packets:
